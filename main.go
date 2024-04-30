@@ -6,13 +6,16 @@ import (
 	"log"
 	"os"
 
-	"github.com/bitwool/sql-export/conn"
+	"github.com/bitwool/sql-export/db"
+	"github.com/bitwool/sql-export/export"
 	"github.com/urfave/cli/v3"
 )
 
 func main() {
 
 	cmd := &cli.Command{
+		Name:  "Sql Export",
+		Usage: "Export Data From MySQL Database By Select Query",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "host",
@@ -46,6 +49,16 @@ func main() {
 				Aliases:  []string{"db"},
 				Required: true,
 			},
+			&cli.StringFlag{
+				Name:     "query",
+				Usage:    "Select Query",
+				Aliases:  []string{"q"},
+				Required: true,
+			},
+			// &cli.BoolFlag{
+			// 	Name:  "ignore-ai-pk",
+			// 	Usage: "Ignore Auto Increment Primary Key",
+			// },
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			host := cmd.String("host")
@@ -53,8 +66,13 @@ func main() {
 			port := cmd.String("port")
 			password := cmd.String("password")
 			dbname := cmd.String("dbname")
+			query := cmd.String("query")
+
+			// ignore_ai_pk := cmd.Bool("ignore-ai-pk")
 			fmt.Printf("host: %s user: %s port: %s password: %s\n", host, user, port, password)
-			conn.Connect(host, port, user, password, dbname)
+			db.Init(host, port, user, password, dbname, query)
+			export.Query(query, false)
+			db.Close()
 			return nil
 		},
 		HideHelp: true,
