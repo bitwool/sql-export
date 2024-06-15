@@ -1,1 +1,4 @@
-*.exe
+build/bin
+frontend/dist
+frontend/node_modules
+.DS_Store
