@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"sql-export/db"
+	"log"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // App struct
@@ -39,11 +42,75 @@ func (a *App) shutdown(ctx context.Context) {
 	// Perform your teardown here
 }
 
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+type Item struct {
+	DbType string `json:"dbType"`
+	Field  string `json:"filed"`
+	Value  string `json:"value"`
 }
 
-func (a *App) Connect(host string, port string, username string, password string, dbname string) bool {
-	return db.Connect(host, port, username, password, dbname)
+type Items struct {
+	Items []Item `json:"items"`
+}
+
+func (a *App) Query(host string, port string, username string, password string, dbname string, query string) []Items {
+
+	result := []Items{}
+
+	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", username, password, host, port, dbname)
+	conn, err := sql.Open("mysql", dataSourceName)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return result
+	}
+	// 尝试ping数据库以验证连接是否成功
+	err = conn.Ping()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return result
+	}
+
+	fmt.Println("Connection Success")
+	fmt.Println(query)
+
+	rows, err := conn.Query(query)
+	if err != nil {
+		fmt.Println(err)
+		return result
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		fmt.Println(err)
+		return result
+	}
+
+	values := make([]sql.RawBytes, len(columns))
+	scanArgs := make([]interface{}, len(values))
+	for i := range values {
+		scanArgs[i] = &values[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(scanArgs...)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		newItems := Items{
+			Items: make([]Item, len(columns)),
+		}
+		for i := range columns {
+			newItems.Items[i] = Item{
+				DbType: "string",
+				Field:  columns[i],
+				Value:  string(values[i]),
+			}
+		}
+		result = append(result, newItems)
+	}
+
+	fmt.Println(result)
+
+	return result
 }
